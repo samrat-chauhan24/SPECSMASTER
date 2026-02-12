@@ -11,7 +11,7 @@ Built with:
 🚀 How It Works
 >User sends a device name
 >Bot finds GSM Arena page
->Gemini extracts structured specs
+>Gemini extracts structured specifications
 >Specs are formatted & sent back
 
 📦 Setup
