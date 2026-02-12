@@ -1,0 +1,431 @@
+{
+  "name": "DeviceInfo",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -464,
+        -32
+      ],
+      "id": "324039ac-0762-487c-8c10-4ec444204d3b",
+      "name": "Telegram Trigger",
+      "webhookId": "da3c9e67-0f76-4363-9690-c823335016b4",
+      "credentials": {
+        "telegramApi": {
+          "id": "kf9j2fwI3kdIosr1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3aca3a78-3912-4b35-b56b-a916f73707d7",
+              "name": "Query",
+              "value": "={{$json[\"message\"][\"text\"]}} \n\n\n\n",
+              "type": "string"
+            },
+            {
+              "id": "f1e003fa-6d17-4efa-9bca-1625341d13cf",
+              "name": "chatId",
+              "value": "={{$json[\"message\"][\"chat\"][\"id\"]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -160,
+        176
+      ],
+      "id": "60957e3b-7db5-4627-8a9b-b63a01ada494",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram Trigger\"].json[\"message\"][\"chat\"][\"id\"]}}\n",
+        "text": "={{$json.message}}\n\n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        912,
+        -16
+      ],
+      "id": "3aad0458-6ec1-4a0f-a1c3-75c79aa62800",
+      "name": "Send a text message",
+      "webhookId": "a0cc75b0-cff8-4247-8ef4-b4b512482e3c",
+      "credentials": {
+        "telegramApi": {
+          "id": "kf9j2fwI3kdIosr1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "680198f4-8b05-4bfc-97a4-8ad558147fc5",
+              "name": "=chatId",
+              "value": "={{$node[\"Edit Fields\"].json[\"chatId\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "f08278c2-8cc3-4972-8b52-76a6deb9bb1f",
+              "name": "query",
+              "value": "={{$node[\"Edit Fields\"].json[\"Query\"]}}",
+              "type": "string"
+            },
+            {
+              "id": "bd2af81c-3b2b-4dc3-9d30-312bcb64e55b",
+              "name": "snippet",
+              "value": "={{\nArray.isArray($node[\"HTTP Request\"].json[\"organic\"])\n  ? $node[\"HTTP Request\"].json[\"organic\"][0]?.snippet || \"\"\n  : \"\"\n}}\n\n\n",
+              "type": "string"
+            },
+            {
+              "id": "873f0ee2-c4e7-4434-b4c9-816e3f059f82",
+              "name": "=searchcontext",
+              "value": "={{\nArray.isArray($node[\"HTTP Request\"].json[\"organic\"])\n  ? $node[\"HTTP Request\"].json[\"organic\"]\n      .map(o => `${o.title || \"\"} - ${o.snippet || \"\"}`)\n      .join(\"\\n\\n\")\n  : \"\"\n}}\n\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        384,
+        160
+      ],
+      "id": "a49274ed-374b-4b50-9690-c9d3658ab2e5",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================\n// 1️⃣ GET GEMINI RAW TEXT SAFELY\n// ========================================\n\nlet raw =\n  $json.content?.parts?.[0]?.text ||\n  $json.text ||\n  \"{}\";\n\nraw = raw.replace(/```json|```/g, \"\").trim();\n\n\n// ========================================\n// 2️⃣ SAFE PARSE\n// ========================================\n\nlet data;\n\ntry {\n  data = JSON.parse(raw);\n} catch (e) {\n  return [{ json: { message: \"❌ Failed to parse Gemini JSON\" } }];\n}\n\n\n// ========================================\n// 3️⃣ SAFE GETTER\n// ========================================\n\nfunction get(path) {\n  return path.split(\".\").reduce((obj, key) => {\n    return (obj && obj[key] !== undefined && obj[key] !== null)\n      ? obj[key]\n      : undefined;\n  }, data);\n}\n\nfunction valid(value) {\n  return value !== undefined &&\n         value !== null &&\n         value !== \"\" &&\n         value !== \"N/A\";\n}\n\n\n// ========================================\n// 4️⃣ EXTRACT VALUES\n// ========================================\n\nconst device = get(\"device_name\") || \"Unknown Device\";\nconst brand = get(\"brand\");\n\nconst displaySize = get(\"display.size\");\nconst displayType = get(\"display.type\");\nconst resolution = get(\"display.resolution\");\nconst refresh = get(\"display.refresh_rate\");\n\nconst chip = get(\"processor.chip\");\n\nconst ram = get(\"ram\");\nconst storage = get(\"storage\");\n\nconst battery = get(\"battery.capacity\");\n\nconst rearCam = get(\"camera.rear\");\nconst frontCam = get(\"camera.front\");\n\nconst colors = get(\"colors\");\n\n\n// ========================================\n// 5️⃣ SMART MESSAGE BUILDER (NO NULLS)\n// ========================================\n\nlet message = `📱 *${device}*`;\n\nif (valid(brand)) {\n  message += `\\n🏷 Brand: ${brand}`;\n}\n\nif ([displaySize, displayType, resolution, refresh].some(valid)) {\n  message += `\\n\\n📺 Display:`;\n  if (valid(displaySize)) message += `\\n• Size: ${displaySize}`;\n  if (valid(displayType)) message += `\\n• Type: ${displayType}`;\n  if (valid(resolution)) message += `\\n• Resolution: ${resolution}`;\n  if (valid(refresh)) message += `\\n• Refresh Rate: ${refresh}`;\n}\n\nif (valid(chip)) {\n  message += `\\n\\n⚙️ Chipset: ${chip}`;\n}\n\nif (valid(ram)) {\n  message += `\\n💾 RAM: ${ram}`;\n}\n\nif (valid(storage)) {\n  message += `\\n📦 Storage: ${storage}`;\n}\n\nif (valid(battery)) {\n  message += `\\n🔋 Battery: ${battery}`;\n}\n\nif (valid(rearCam) || valid(frontCam)) {\n  message += `\\n\\n📸 Cameras:`;\n  if (valid(rearCam)) message += `\\n• Rear: ${rearCam}`;\n  if (valid(frontCam)) message += `\\n• Front: ${frontCam}`;\n}\n\nif (valid(colors)) {\n  message += `\\n🎨 Colors: ${colors}`;\n}\n\n\n// ========================================\n// 6️⃣ RETURN\n// ========================================\n\nreturn [\n  {\n    json: {\n      message: message.trim()\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        768,
+        176
+      ],
+      "id": "5dfda80c-a85b-41e5-aba6-48a49200b49f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $json.organic || [];\n\nlet gsmUrl = null;\n\nfor (const r of results) {\n  if (r.link && r.link.includes(\"gsmarena.com\")) {\n    gsmUrl = r.link;\n    break;\n  }\n}\n\nif (!gsmUrl) {\n  return [{ json: { error: \"No GSM Arena URL found\" } }];\n}\n\nreturn [{ json: { gsm_url: gsmUrl } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        176
+      ],
+      "id": "5a27d242-bf45-4baa-9001-0e009a32be7a",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f30e4c65-1bc7-476c-8711-712c3e1f8532",
+              "leftValue": "={{$json[\"message\"][\"text\"]}}",
+              "rightValue": "/start",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -304,
+        -32
+      ],
+      "id": "eff47635-8f93-4255-a6c5-3897e16ef7bf",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "👋 Welcome to SPECSMASTER!  Send me any phone or laptop model name and I’ll return all specifications.  Example: • iPhone 17 • MacBook Air M4 • Galaxy S23  Let’s go 🚀",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -176,
+        -256
+      ],
+      "id": "827d8639-4fb3-47a3-beea-e4a372a34dde",
+      "name": "Send a text message1",
+      "webhookId": "86e5fff5-035c-4f54-9344-307d2bde06a8",
+      "credentials": {
+        "telegramApi": {
+          "id": "kf9j2fwI3kdIosr1",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a strict technical specification extractor.\n\nExtract ALL numeric hardware specifications even if embedded in marketing sentences.\n\nRules:\n- Detect numbers followed by units (GB, mAh, MP, inch, Hz).\n- Infer categories from context.\n- Do not ignore values.\n- If missing, return null.\n- Return ONLY valid JSON.\n- Do not explain.\n\n\nYour task:\nExtract technical specifications from the provided text.\n\nYou MUST return valid JSON.\nYou MUST NOT return explanations.\nYou MUST NOT return markdown.\nYou MUST NOT wrap output in backticks.\nYou MUST NOT add extra text.\nYou MUST NOT add comments.\nYou MUST NOT add trailing commas.\nUse double quotes only.\n\nReturn JSON in EXACTLY this structure:\n\n{\n  \"device_name\": null,\n  \"brand\": null,\n  \"display\": {\n    \"size\": null,\n    \"type\": null,\n    \"resolution\": null,\n    \"refresh_rate\": null,\n    \"protection\": null\n  },\n  \"processor\": {\n    \"chip\": null\n  },\n  \"ram\": null,\n  \"storage\": null,\n  \"battery\": {\n    \"capacity\": null\n  },\n  \"camera\": {\n    \"rear\": null,\n    \"front\": null\n  },\n  \"colors\": null\n}\n\nRules:\n- If a value is not found, set it to null.\n- Do NOT change the structure.\n- Do NOT create dynamic top-level keys.\n- Output must be JSON.parse compatible.\nIf specifications are implied but not explicitly labeled,\nextract numeric values where possible.\n\nExamples:\n- \"A19 chip\" → processor.chip = \"A19\"\n- \"6.3-inch display\" → display.size = \"6.3-inch\"\n- \"48MP camera\" → camera.rear = \"48MP\"\n\nIf a spec truly does not exist in text, return null.\n\n\nText to analyze:\n{{$json.searchcontext || $json.snippet || $json.query}}\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        -16
+      ],
+      "id": "2daad26f-8d12-4eb9-878e-14ad84afd6d2",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "BSRXFrNNY4h4syda",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "01bf36ad23ec11f15368ec0a6dc83210079d7b0f"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.Query}} gsmarena site:gsmarena.com\n\n"
+            },
+            {
+              "name": "gl",
+              "value": "us"
+            },
+            {
+              "name": "hl",
+              "value": "en"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16,
+        -16
+      ],
+      "id": "c70015bd-c16e-439d-8d99-0f8cd4396e66",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.gsm_url}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        240,
+        -16
+      ],
+      "id": "635dbca8-b8cc-4ae8-81d7-4ea0a007fadc",
+      "name": "HTTP Request2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1d0d1638-0942-4281-b7fe-e8607af63b77",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "df88f10f85cf3752bf9fcca1a77ec4ad136df7d4fd5f810c950896bb7d45ab65"
+  },
+  "id": "dnGvbzi67VjOwIuH8kzB2",
+  "tags": []
+}
